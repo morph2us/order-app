@@ -303,3 +303,515 @@
 - 반응형 디자인 고려 (모바일/데스크톱)
 - 상태 변경 시 명확한 피드백 제공
 - 재고 조정 시 즉각적인 시각적 피드백 제공
+
+## 6. 백엔드 개발
+
+### 6.1 데이터 모델
+
+#### 6.1.1 Menus (메뉴)
+커피 메뉴 정보를 저장하는 테이블입니다.
+
+**필드**:
+- `id` (Primary Key, Auto Increment): 메뉴 고유 ID
+- `name` (VARCHAR): 커피 이름 (예: "아메리카노(ICE)", "카페라떼")
+- `description` (TEXT): 메뉴 설명
+- `price` (INTEGER): 기본 가격 (원 단위)
+- `image_url` (VARCHAR): 메뉴 이미지 URL
+- `stock` (INTEGER): 재고 수량 (기본값: 0)
+- `created_at` (TIMESTAMP): 생성 일시
+- `updated_at` (TIMESTAMP): 수정 일시
+
+**제약 조건**:
+- `name`은 필수이며 중복 불가
+- `price`는 0 이상의 정수
+- `stock`은 0 이상의 정수
+
+#### 6.1.2 Options (옵션)
+메뉴에 추가할 수 있는 옵션 정보를 저장하는 테이블입니다.
+
+**필드**:
+- `id` (Primary Key, Auto Increment): 옵션 고유 ID
+- `name` (VARCHAR): 옵션 이름 (예: "샷 추가", "시럽 추가")
+- `price` (INTEGER): 옵션 추가 가격 (원 단위, 기본값: 0)
+- `menu_id` (Foreign Key): 연결된 메뉴 ID (Menus 테이블 참조)
+- `created_at` (TIMESTAMP): 생성 일시
+- `updated_at` (TIMESTAMP): 수정 일시
+
+**제약 조건**:
+- `name`은 필수
+- `price`는 0 이상의 정수
+- `menu_id`는 Menus 테이블의 유효한 ID여야 함
+
+**관계**:
+- 하나의 메뉴는 여러 옵션을 가질 수 있음 (1:N 관계)
+
+#### 6.1.3 Orders (주문)
+주문 정보를 저장하는 테이블입니다.
+
+**필드**:
+- `id` (Primary Key, Auto Increment): 주문 고유 ID
+- `order_date` (TIMESTAMP): 주문 일시 (기본값: 현재 시간)
+- `total_amount` (INTEGER): 주문 총 금액 (원 단위)
+- `status` (VARCHAR): 주문 상태 ('pending', 'received', 'manufacturing', 'completed')
+- `created_at` (TIMESTAMP): 생성 일시
+- `updated_at` (TIMESTAMP): 수정 일시
+
+**제약 조건**:
+- `total_amount`는 0 이상의 정수
+- `status`는 지정된 값 중 하나여야 함
+
+#### 6.1.4 OrderItems (주문 아이템)
+주문에 포함된 각 메뉴 아이템 정보를 저장하는 테이블입니다.
+
+**필드**:
+- `id` (Primary Key, Auto Increment): 주문 아이템 고유 ID
+- `order_id` (Foreign Key): 주문 ID (Orders 테이블 참조)
+- `menu_id` (Foreign Key): 메뉴 ID (Menus 테이블 참조)
+- `menu_name` (VARCHAR): 메뉴 이름 (주문 시점의 이름 저장)
+- `quantity` (INTEGER): 주문 수량
+- `price` (INTEGER): 아이템 단가 (기본 가격 + 옵션 가격)
+- `created_at` (TIMESTAMP): 생성 일시
+
+**제약 조건**:
+- `quantity`는 1 이상의 정수
+- `price`는 0 이상의 정수
+
+**관계**:
+- 하나의 주문은 여러 주문 아이템을 가질 수 있음 (1:N 관계)
+
+#### 6.1.5 OrderItemOptions (주문 아이템 옵션)
+주문 아이템에 선택된 옵션 정보를 저장하는 테이블입니다.
+
+**필드**:
+- `id` (Primary Key, Auto Increment): 주문 아이템 옵션 고유 ID
+- `order_item_id` (Foreign Key): 주문 아이템 ID (OrderItems 테이블 참조)
+- `option_id` (Foreign Key): 옵션 ID (Options 테이블 참조)
+- `option_name` (VARCHAR): 옵션 이름 (주문 시점의 이름 저장)
+- `option_price` (INTEGER): 옵션 가격 (주문 시점의 가격 저장)
+- `created_at` (TIMESTAMP): 생성 일시
+
+**관계**:
+- 하나의 주문 아이템은 여러 옵션을 가질 수 있음 (1:N 관계)
+
+### 6.2 데이터 스키마를 위한 사용자 흐름
+
+#### 6.2.1 메뉴 조회 및 표시
+1. **프런트엔드**: '주문하기' 화면 접속 시 메뉴 목록 요청
+2. **백엔드**: `GET /api/menus` 엔드포인트 호출
+3. **데이터베이스**: Menus 테이블에서 모든 메뉴 조회
+4. **데이터베이스**: 각 메뉴에 연결된 Options 조회 (JOIN 또는 별도 쿼리)
+5. **백엔드**: 메뉴와 옵션 정보를 조합하여 응답
+6. **프런트엔드**: 받은 데이터를 화면에 표시
+   - 주문하기 화면: 메뉴 이름, 가격, 설명, 이미지, 옵션 표시
+   - 관리자 화면: 재고 수량도 함께 표시
+
+#### 6.2.2 장바구니 관리
+1. **프런트엔드**: 사용자가 메뉴를 선택하고 옵션을 선택
+2. **프런트엔드**: 선택한 정보를 로컬 상태(장바구니)에 저장
+3. **프런트엔드**: 장바구니에 담긴 아이템 목록과 총 금액 표시
+   - 재고 확인: Menus 테이블의 stock 필드와 비교하여 재고 부족 시 주문 제한
+
+#### 6.2.3 주문 생성
+1. **프런트엔드**: 장바구니에서 '주문하기' 버튼 클릭
+2. **프런트엔드**: 주문 정보를 서버로 전송 (`POST /api/orders`)
+3. **백엔드**: 주문 데이터 검증
+   - 재고 확인: 주문 수량이 재고를 초과하지 않는지 확인
+4. **데이터베이스**: 트랜잭션 시작
+   - Orders 테이블에 주문 정보 저장
+   - OrderItems 테이블에 주문 아이템 저장
+   - OrderItemOptions 테이블에 선택된 옵션 저장
+   - Menus 테이블의 stock 필드 업데이트 (재고 차감)
+5. **데이터베이스**: 트랜잭션 커밋
+6. **백엔드**: 생성된 주문 ID와 함께 응답
+7. **프런트엔드**: 주문 완료 메시지 표시 및 장바구니 초기화
+
+#### 6.2.4 주문 현황 조회 및 상태 변경
+1. **프런트엔드**: 관리자 화면 접속 시 주문 목록 요청 (`GET /api/orders`)
+2. **백엔드**: Orders 테이블에서 주문 목록 조회
+   - OrderItems와 OrderItemOptions를 JOIN하여 상세 정보 포함
+   - 상태별 필터링 가능
+3. **프런트엔드**: 주문 현황 섹션에 주문 목록 표시
+4. **프런트엔드**: 관리자가 상태 변경 버튼 클릭
+5. **프런트엔드**: 상태 변경 요청 전송 (`PATCH /api/orders/:id/status`)
+6. **백엔드**: 주문 상태 업데이트
+7. **데이터베이스**: Orders 테이블의 status 필드 업데이트
+8. **백엔드**: 업데이트된 주문 정보 응답
+9. **프런트엔드**: 화면에 변경된 상태 반영
+
+### 6.3 API 설계
+
+#### 6.3.1 메뉴 관련 API
+
+##### GET /api/menus
+메뉴 목록을 조회합니다.
+
+**요청**:
+- Method: GET
+- Headers: 없음
+- Query Parameters: 없음
+
+**응답** (200 OK):
+```json
+{
+  "menus": [
+    {
+      "id": 1,
+      "name": "아메리카노(ICE)",
+      "description": "간단한 설명...",
+      "price": 4000,
+      "image_url": "https://images.unsplash.com/...",
+      "stock": 10,
+      "options": [
+        {
+          "id": 1,
+          "name": "샷 추가",
+          "price": 500
+        },
+        {
+          "id": 2,
+          "name": "시럽 추가",
+          "price": 0
+        }
+      ]
+    }
+  ]
+}
+```
+
+**에러 응답**:
+- 500 Internal Server Error: 서버 오류
+
+##### GET /api/menus/:id
+특정 메뉴의 상세 정보를 조회합니다.
+
+**요청**:
+- Method: GET
+- Path Parameters:
+  - `id`: 메뉴 ID
+
+**응답** (200 OK):
+```json
+{
+  "id": 1,
+  "name": "아메리카노(ICE)",
+  "description": "간단한 설명...",
+  "price": 4000,
+  "image_url": "https://images.unsplash.com/...",
+  "stock": 10,
+  "options": [...]
+}
+```
+
+**에러 응답**:
+- 404 Not Found: 메뉴를 찾을 수 없음
+- 500 Internal Server Error: 서버 오류
+
+##### PATCH /api/menus/:id/stock
+메뉴의 재고를 수정합니다. (관리자용)
+
+**요청**:
+- Method: PATCH
+- Path Parameters:
+  - `id`: 메뉴 ID
+- Body:
+```json
+{
+  "change": 1  // 증가: 양수, 감소: 음수
+}
+```
+
+**응답** (200 OK):
+```json
+{
+  "id": 1,
+  "name": "아메리카노(ICE)",
+  "stock": 11,
+  "updated_at": "2024-01-01T12:00:00Z"
+}
+```
+
+**에러 응답**:
+- 400 Bad Request: 재고가 0 미만이 되는 경우
+- 404 Not Found: 메뉴를 찾을 수 없음
+- 500 Internal Server Error: 서버 오류
+
+#### 6.3.2 주문 관련 API
+
+##### POST /api/orders
+새로운 주문을 생성합니다.
+
+**요청**:
+- Method: POST
+- Body:
+```json
+{
+  "items": [
+    {
+      "menu_id": 1,
+      "quantity": 2,
+      "selected_options": [1, 2]  // 옵션 ID 배열
+    },
+    {
+      "menu_id": 3,
+      "quantity": 1,
+      "selected_options": [1]
+    }
+  ]
+}
+```
+
+**응답** (201 Created):
+```json
+{
+  "id": 123,
+  "order_date": "2024-01-01T12:00:00Z",
+  "total_amount": 14000,
+  "status": "received",
+  "items": [
+    {
+      "menu_id": 1,
+      "menu_name": "아메리카노(ICE)",
+      "quantity": 2,
+      "price": 4500,
+      "options": [
+        {
+          "option_id": 1,
+          "option_name": "샷 추가",
+          "option_price": 500
+        },
+        {
+          "option_id": 2,
+          "option_name": "시럽 추가",
+          "option_price": 0
+        }
+      ]
+    }
+  ]
+}
+```
+
+**에러 응답**:
+- 400 Bad Request: 재고 부족 또는 잘못된 요청 데이터
+- 500 Internal Server Error: 서버 오류
+
+**비즈니스 로직**:
+1. 요청 데이터 검증
+2. 각 메뉴의 재고 확인
+3. 재고 부족 시 400 에러 반환
+4. 트랜잭션 시작
+5. Orders 테이블에 주문 저장
+6. OrderItems 테이블에 주문 아이템 저장
+7. OrderItemOptions 테이블에 옵션 저장
+8. Menus 테이블의 재고 차감
+9. 트랜잭션 커밋
+10. 생성된 주문 정보 반환
+
+##### GET /api/orders
+주문 목록을 조회합니다.
+
+**요청**:
+- Method: GET
+- Query Parameters:
+  - `status` (optional): 주문 상태 필터 ('pending', 'received', 'manufacturing', 'completed')
+  - `limit` (optional): 조회할 최대 개수 (기본값: 100)
+  - `offset` (optional): 건너뛸 개수 (기본값: 0)
+
+**응답** (200 OK):
+```json
+{
+  "orders": [
+    {
+      "id": 123,
+      "order_date": "2024-01-01T12:00:00Z",
+      "total_amount": 14000,
+      "status": "received",
+      "items": [
+        {
+          "menu_id": 1,
+          "menu_name": "아메리카노(ICE)",
+          "quantity": 2,
+          "price": 4500,
+          "options": [...]
+        }
+      ]
+    }
+  ],
+  "total": 50,
+  "limit": 100,
+  "offset": 0
+}
+```
+
+**에러 응답**:
+- 500 Internal Server Error: 서버 오류
+
+##### GET /api/orders/:id
+특정 주문의 상세 정보를 조회합니다.
+
+**요청**:
+- Method: GET
+- Path Parameters:
+  - `id`: 주문 ID
+
+**응답** (200 OK):
+```json
+{
+  "id": 123,
+  "order_date": "2024-01-01T12:00:00Z",
+  "total_amount": 14000,
+  "status": "received",
+  "items": [
+    {
+      "menu_id": 1,
+      "menu_name": "아메리카노(ICE)",
+      "quantity": 2,
+      "price": 4500,
+      "options": [...]
+    }
+  ],
+  "created_at": "2024-01-01T12:00:00Z",
+  "updated_at": "2024-01-01T12:00:00Z"
+}
+```
+
+**에러 응답**:
+- 404 Not Found: 주문을 찾을 수 없음
+- 500 Internal Server Error: 서버 오류
+
+##### PATCH /api/orders/:id/status
+주문 상태를 변경합니다. (관리자용)
+
+**요청**:
+- Method: PATCH
+- Path Parameters:
+  - `id`: 주문 ID
+- Body:
+```json
+{
+  "status": "manufacturing"  // 'received', 'manufacturing', 'completed'
+}
+```
+
+**응답** (200 OK):
+```json
+{
+  "id": 123,
+  "status": "manufacturing",
+  "updated_at": "2024-01-01T12:30:00Z"
+}
+```
+
+**에러 응답**:
+- 400 Bad Request: 잘못된 상태 값 또는 상태 변경 규칙 위반
+- 404 Not Found: 주문을 찾을 수 없음
+- 500 Internal Server Error: 서버 오류
+
+**상태 변경 규칙**:
+- 'received' → 'manufacturing' 가능
+- 'manufacturing' → 'completed' 가능
+- 이전 상태로 되돌리는 것은 불가능
+
+### 6.4 데이터베이스 스키마 예시
+
+#### 6.4.1 Menus 테이블
+```sql
+CREATE TABLE menus (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  description TEXT,
+  price INTEGER NOT NULL CHECK (price >= 0),
+  image_url VARCHAR(500),
+  stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 6.4.2 Options 테이블
+```sql
+CREATE TABLE options (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  price INTEGER NOT NULL DEFAULT 0 CHECK (price >= 0),
+  menu_id INTEGER NOT NULL REFERENCES menus(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 6.4.3 Orders 테이블
+```sql
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  total_amount INTEGER NOT NULL CHECK (total_amount >= 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'received' 
+    CHECK (status IN ('pending', 'received', 'manufacturing', 'completed')),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 6.4.4 OrderItems 테이블
+```sql
+CREATE TABLE order_items (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  menu_id INTEGER NOT NULL REFERENCES menus(id),
+  menu_name VARCHAR(100) NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  price INTEGER NOT NULL CHECK (price >= 0),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 6.4.5 OrderItemOptions 테이블
+```sql
+CREATE TABLE order_item_options (
+  id SERIAL PRIMARY KEY,
+  order_item_id INTEGER NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+  option_id INTEGER NOT NULL REFERENCES options(id),
+  option_name VARCHAR(100) NOT NULL,
+  option_price INTEGER NOT NULL DEFAULT 0 CHECK (option_price >= 0),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 6.4.6 인덱스
+```sql
+-- 성능 최적화를 위한 인덱스
+CREATE INDEX idx_options_menu_id ON options(menu_id);
+CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_orders_order_date ON orders(order_date DESC);
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX idx_order_item_options_order_item_id ON order_item_options(order_item_id);
+```
+
+### 6.5 에러 처리
+
+#### 6.5.1 공통 에러 응답 형식
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "에러 메시지",
+    "details": {}  // 선택적 상세 정보
+  }
+}
+```
+
+#### 6.5.2 주요 에러 코드
+- `INVALID_REQUEST`: 잘못된 요청 데이터
+- `MENU_NOT_FOUND`: 메뉴를 찾을 수 없음
+- `ORDER_NOT_FOUND`: 주문을 찾을 수 없음
+- `INSUFFICIENT_STOCK`: 재고 부족
+- `INVALID_STATUS_TRANSITION`: 잘못된 상태 변경
+- `INTERNAL_SERVER_ERROR`: 서버 내부 오류
+
+### 6.6 보안 고려사항
+
+- 입력 데이터 검증 및 sanitization
+- SQL Injection 방지 (Prepared Statement 사용)
+- CORS 설정 (프런트엔드 도메인만 허용)
+- Rate Limiting (과도한 요청 방지)
+- 에러 메시지에서 민감한 정보 노출 방지
