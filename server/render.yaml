@@ -1,0 +1,27 @@
+# Render.com 배포 설정 파일 (선택사항)
+# 이 파일을 사용하면 render.yaml을 통해 서비스를 한 번에 생성할 수 있습니다.
+
+services:
+  - type: web
+    name: coffee-order-api
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    rootDir: server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # 데이터베이스 환경 변수는 Render.com 대시보드에서 설정하세요
+      # Internal Database URL을 사용하면 자동으로 연결됩니다
+
+databases:
+  - name: coffee-order-db
+    databaseName: coffee_order_db
+    user: postgres
+    plan: free
+    region: singapore
+

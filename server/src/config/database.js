@@ -4,17 +4,35 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Render.com의 Internal Database URL 지원
+// DATABASE_URL이 있으면 사용, 없으면 개별 환경 변수 사용
+let poolConfig;
+
+if (process.env.DATABASE_URL) {
+  // Render.com의 Internal Database URL 형식: postgresql://user:password@host:port/database
+  poolConfig = {
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  };
+} else {
+  // 개별 환경 변수 사용 (로컬 개발 환경)
+  poolConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 5432,
+    database: process.env.DB_NAME || 'order_app',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || '',
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  };
+}
+
 // PostgreSQL 연결 풀 생성
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'order_app',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  max: 20, // 최대 연결 수
-  idleTimeoutMillis: 30000, // 유휴 연결 타임아웃
-  connectionTimeoutMillis: 2000, // 연결 타임아웃
-});
+const pool = new Pool(poolConfig);
 
 // 연결 테스트
 pool.on('connect', () => {
