@@ -2,6 +2,9 @@ import { useState } from 'react';
 import Header from './Header';
 import MenuCard from './MenuCard';
 import ShoppingCart from './ShoppingCart';
+import AdminDashboard from './AdminDashboard';
+import InventoryStatus from './InventoryStatus';
+import OrderStatus from './OrderStatus';
 import './App.css';
 
 // 임시 메뉴 데이터
@@ -66,6 +69,18 @@ const menuData = [
 function App() {
   const [currentPage, setCurrentPage] = useState('order');
   const [cartItems, setCartItems] = useState([]);
+  
+  // 주문 목록 상태 (전역 관리)
+  const [orders, setOrders] = useState([]);
+  
+  // 재고 상태 (모든 메뉴 관리)
+  const [inventory, setInventory] = useState([
+    { menuId: 1, menuName: '아메리카노(ICE)', stock: 10 },
+    { menuId: 2, menuName: '아메리카노(HOT)', stock: 10 },
+    { menuId: 3, menuName: '카페라떼', stock: 10 },
+    { menuId: 4, menuName: '카푸치노', stock: 10 },
+    { menuId: 5, menuName: '에스프레소', stock: 10 }
+  ]);
 
   const handleAddToCart = (item) => {
     setCartItems(prev => {
@@ -123,6 +138,7 @@ function App() {
     
     // 주문 데이터 생성
     const orderData = {
+      id: Date.now(), // 임시 ID 생성
       items: cartItems.map(item => ({
         menuId: item.menuId,
         menuName: item.menuName,
@@ -134,11 +150,12 @@ function App() {
         price: item.totalPrice
       })),
       totalAmount: cartItems.reduce((sum, item) => sum + item.totalPrice * item.quantity, 0),
-      orderDate: new Date().toISOString()
+      orderDate: new Date().toISOString(),
+      status: 'received' // 주문 접수 상태로 시작
     };
 
-    // TODO: 서버로 주문 데이터 전송
-    console.log('주문 데이터:', orderData);
+    // 주문 목록에 추가
+    setOrders(prev => [orderData, ...prev]);
     
     // 주문 완료 알림
     alert('주문이 완료되었습니다!');
@@ -147,12 +164,31 @@ function App() {
     setCartItems([]);
   };
 
+  const handleUpdateStock = (menuId, change) => {
+    setInventory(prev => 
+      prev.map(item => {
+        if (item.menuId === menuId) {
+          const newStock = Math.max(0, item.stock + change);
+          return { ...item, stock: newStock };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleUpdateOrderStatus = (orderId, newStatus) => {
+    setOrders(prev =>
+      prev.map(order => {
+        if (order.id === orderId) {
+          return { ...order, status: newStatus };
+        }
+        return order;
+      })
+    );
+  };
+
   const handleNavigate = (page) => {
     setCurrentPage(page);
-    // TODO: 관리자 화면 구현 시 라우팅 처리
-    if (page === 'admin') {
-      alert('관리자 화면은 아직 구현되지 않았습니다.');
-    }
   };
 
   return (
@@ -175,6 +211,19 @@ function App() {
             cartItems={cartItems} 
             onOrder={handleOrder}
             onRemoveFromCart={handleRemoveFromCart}
+          />
+        </main>
+      )}
+      {currentPage === 'admin' && (
+        <main className="main-content">
+          <AdminDashboard orders={orders} />
+          <InventoryStatus 
+            inventory={inventory}
+            onUpdateStock={handleUpdateStock}
+          />
+          <OrderStatus 
+            orders={orders}
+            onUpdateOrderStatus={handleUpdateOrderStatus}
           />
         </main>
       )}
