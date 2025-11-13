@@ -10,21 +10,36 @@ let poolConfig;
 
 if (process.env.DATABASE_URL) {
   // Render.com의 Internal Database URL 형식: postgresql://user:password@host:port/database
+  // Render.com의 데이터베이스는 항상 SSL이 필요함
+  const isRenderDB = process.env.DATABASE_URL.includes('render.com') || 
+                     process.env.DATABASE_URL.includes('dpg-');
+  
   poolConfig = {
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    // Render.com 데이터베이스는 항상 SSL 필요, 프로덕션 환경도 SSL 사용
+    ssl: (isRenderDB || process.env.NODE_ENV === 'production') ? { rejectUnauthorized: false } : false,
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
   };
 } else {
-  // 개별 환경 변수 사용 (로컬 개발 환경)
+  // 개별 환경 변수 사용 (로컬 개발 환경 또는 Render.com)
+  // Render.com의 경우 SSL이 필요하므로, DB_HOST에 render.com이 포함되어 있으면 SSL 활성화
+  const isRenderDB = process.env.DB_HOST && (
+    process.env.DB_HOST.includes('render.com') || 
+    process.env.DB_HOST.includes('dpg-')
+  );
+  
+  // 프로덕션 환경이거나 Render.com 데이터베이스면 SSL 활성화
+  const needsSSL = isRenderDB || process.env.NODE_ENV === 'production';
+  
   poolConfig = {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
     database: process.env.DB_NAME || 'order_app',
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || '',
+    ssl: needsSSL ? { rejectUnauthorized: false } : false,
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,

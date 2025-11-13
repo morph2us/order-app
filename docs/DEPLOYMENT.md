@@ -66,7 +66,16 @@
 
 3. **환경 변수 설정**
    - "Environment" 탭으로 이동
-   - 다음 환경 변수 추가:
+   - 다음 환경 변수 추가 (방법 1: DATABASE_URL 사용 - 권장):
+     ```
+     PORT=10000
+     NODE_ENV=production
+     DATABASE_URL=postgresql://postgres:password@dpg-xxxxx-a.singapore-postgres.render.com:5432/coffee_order_db
+     ```
+     - **주의**: `DATABASE_URL`은 1단계에서 생성한 데이터베이스의 **Internal Database URL**을 사용하세요.
+     - Render.com 대시보드의 데이터베이스 페이지에서 "Internal Database URL"을 복사하면 됩니다.
+   
+   - 또는 (방법 2: 개별 환경 변수 사용):
      ```
      PORT=10000
      NODE_ENV=production
@@ -76,7 +85,8 @@
      DB_USER=postgres
      DB_PASSWORD=your_password_from_database
      ```
-   - **주의**: `DB_PASSWORD`는 1단계에서 생성한 데이터베이스의 비밀번호입니다.
+     - **주의**: `DB_PASSWORD`는 1단계에서 생성한 데이터베이스의 비밀번호입니다.
+     - **중요**: Render.com의 PostgreSQL은 SSL 연결이 필요하므로, 코드에서 자동으로 SSL을 활성화합니다.
 
 4. **서비스 생성 및 배포**
    - "Create Web Service" 클릭
