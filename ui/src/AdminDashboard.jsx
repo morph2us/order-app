@@ -1,11 +1,14 @@
 import './AdminDashboard.css';
 
 function AdminDashboard({ orders }) {
+  // orders가 배열이 아니거나 undefined인 경우를 대비
+  const ordersArray = Array.isArray(orders) ? orders : [];
+  
   const stats = {
-    totalOrders: orders.length,
-    receivedOrders: orders.filter(order => order.status === 'received').length,
-    manufacturingOrders: orders.filter(order => order.status === 'manufacturing').length,
-    completedOrders: orders.filter(order => order.status === 'completed').length
+    totalOrders: ordersArray.length,
+    receivedOrders: ordersArray.filter(order => order.status === 'received').length,
+    manufacturingOrders: ordersArray.filter(order => order.status === 'manufacturing').length,
+    completedOrders: ordersArray.filter(order => order.status === 'completed').length
   };
 
   return (

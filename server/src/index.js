@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pool, { testConnection } from './config/database.js';
+import menusRoutes from './routes/menus.js';
+import ordersRoutes from './routes/orders.js';
 
 // 환경 변수 로드
 dotenv.config();
@@ -22,9 +24,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// API 라우트 (추후 추가 예정)
-// app.use('/api/menus', menusRoutes);
-// app.use('/api/orders', ordersRoutes);
+// API 라우트
+app.use('/api/menus', menusRoutes);
+app.use('/api/orders', ordersRoutes);
 
 // 404 핸들러
 app.use((req, res) => {
