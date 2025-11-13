@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Header from './Header';
 import MenuCard from './MenuCard';
 import ShoppingCart from './ShoppingCart';
 import AdminDashboard from './AdminDashboard';
 import InventoryStatus from './InventoryStatus';
 import OrderStatus from './OrderStatus';
+import Toast from './Toast';
 import './App.css';
 
 // 임시 메뉴 데이터
@@ -81,9 +82,52 @@ function App() {
     { menuId: 4, menuName: '카푸치노', stock: 10 },
     { menuId: 5, menuName: '에스프레소', stock: 10 }
   ]);
+  
+  // 재고 부족 알림 중복 방지
+  const stockAlertRef = useRef({});
+  
+  // Toast 메시지 상태
+  const [toast, setToast] = useState(null);
+  
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+  
+  const hideToast = () => {
+    setToast(null);
+  };
 
   const handleAddToCart = (item) => {
+    // 재고 확인
+    const stockItem = inventory.find(inv => inv.menuId === item.menuId);
+    if (!stockItem || stockItem.stock === 0) {
+      showToast('재고가 없어 주문할 수 없습니다.', 'error');
+      return;
+    }
+
+    // 현재 장바구니 상태를 기반으로 재고 확인 (함수형 업데이트 사용)
+    let shouldShowAlert = false;
+    
     setCartItems(prev => {
+      // 장바구니에 이미 담긴 같은 메뉴의 총 수량 계산 (옵션과 관계없이)
+      const totalQuantityInCart = prev
+        .filter(cartItem => cartItem.menuId === item.menuId)
+        .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+
+      // 추가하려는 수량(1)을 포함하여 재고를 초과하는지 확인
+      if (totalQuantityInCart + 1 > stockItem.stock) {
+        // 중복 알림 방지: 같은 메뉴에 대해 짧은 시간 내 중복 알림 방지
+        const lastAlertTime = stockAlertRef.current[item.menuId] || 0;
+        const now = Date.now();
+        
+        if (now - lastAlertTime > 500) { // 500ms 내 중복 알림 방지
+          shouldShowAlert = true;
+          stockAlertRef.current[item.menuId] = now;
+        }
+        
+        return prev; // 상태 변경 없이 반환
+      }
+
       // 같은 메뉴와 옵션 조합이 있는지 확인
       const existingIndex = prev.findIndex(cartItem => {
         // 메뉴 ID가 다르면 다른 아이템
@@ -127,6 +171,11 @@ function App() {
         return [...prev, { ...item, quantity: 1 }];
       }
     });
+
+    // 재고 부족 알림 (상태 업데이트 후 외부에서 호출)
+    if (shouldShowAlert) {
+      showToast(`재고가 부족합니다. (현재 재고: ${stockItem.stock}개)`, 'warning');
+    }
   };
 
   const handleRemoveFromCart = (index) => {
@@ -136,9 +185,39 @@ function App() {
   const handleOrder = () => {
     if (cartItems.length === 0) return;
     
+    // 주문 전 재고 재확인
+    const stockIssues = [];
+    cartItems.forEach(cartItem => {
+      const stockItem = inventory.find(inv => inv.menuId === cartItem.menuId);
+      if (!stockItem) {
+        stockIssues.push(`${cartItem.menuName}: 재고 정보를 찾을 수 없습니다.`);
+        return;
+      }
+      
+      // 장바구니에 담긴 같은 메뉴의 총 수량 계산
+      const totalQuantityInCart = cartItems
+        .filter(item => item.menuId === cartItem.menuId)
+        .reduce((sum, item) => sum + item.quantity, 0);
+      
+      if (totalQuantityInCart > stockItem.stock) {
+        stockIssues.push(`${cartItem.menuName}: 재고 부족 (주문: ${totalQuantityInCart}개, 재고: ${stockItem.stock}개)`);
+      }
+    });
+    
+    // 재고 문제가 있으면 주문 중단
+    if (stockIssues.length > 0) {
+      showToast(`주문할 수 없습니다:\n${stockIssues.join('\n')}`, 'error');
+      return;
+    }
+    
+    // 고유한 주문 ID 생성 (Date.now() + 랜덤 문자열)
+    const generateOrderId = () => {
+      return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    };
+    
     // 주문 데이터 생성
     const orderData = {
-      id: Date.now(), // 임시 ID 생성
+      id: generateOrderId(),
       items: cartItems.map(item => ({
         menuId: item.menuId,
         menuName: item.menuName,
@@ -157,8 +236,24 @@ function App() {
     // 주문 목록에 추가
     setOrders(prev => [orderData, ...prev]);
     
+    // 주문한 아이템들의 재고 차감
+    setInventory(prev => {
+      return prev.map(invItem => {
+        // 장바구니에서 해당 메뉴의 총 주문 수량 계산 (옵션과 관계없이)
+        const totalOrderedQuantity = cartItems
+          .filter(cartItem => cartItem.menuId === invItem.menuId)
+          .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+        
+        if (totalOrderedQuantity > 0) {
+          const newStock = Math.max(0, invItem.stock - totalOrderedQuantity);
+          return { ...invItem, stock: newStock };
+        }
+        return invItem;
+      });
+    });
+    
     // 주문 완료 알림
-    alert('주문이 완료되었습니다!');
+    showToast('주문이 완료되었습니다!', 'success');
     
     // 장바구니 초기화
     setCartItems([]);
@@ -193,6 +288,13 @@ function App() {
 
   return (
     <div className="app">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
       <Header currentPage={currentPage} onNavigate={handleNavigate} />
       {currentPage === 'order' && (
         <main className="main-content">
@@ -203,6 +305,7 @@ function App() {
                   key={menu.id} 
                   menu={menu} 
                   onAddToCart={handleAddToCart}
+                  inventory={inventory}
                 />
               ))}
             </div>

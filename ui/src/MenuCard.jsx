@@ -1,9 +1,13 @@
 import { useState, useRef } from 'react';
 import './MenuCard.css';
 
-function MenuCard({ menu, onAddToCart }) {
+function MenuCard({ menu, onAddToCart, inventory }) {
   const [selectedOptions, setSelectedOptions] = useState([]);
   const isAddingRef = useRef(false);
+  
+  // 해당 메뉴의 재고 확인
+  const stockItem = inventory?.find(item => item.menuId === menu.id);
+  const isOutOfStock = stockItem ? stockItem.stock === 0 : false;
 
   const handleOptionChange = (option) => {
     setSelectedOptions(prev => {
@@ -71,7 +75,10 @@ function MenuCard({ menu, onAddToCart }) {
         </div>
       </div>
       <div className="menu-info">
-        <h3 className="menu-name">{menu.name}</h3>
+        <div className="menu-name-wrapper">
+          <h3 className="menu-name">{menu.name}</h3>
+          {isOutOfStock && <span className="out-of-stock-badge">품절</span>}
+        </div>
         <p className="menu-price">{menu.price.toLocaleString()}원</p>
         <p className="menu-description">{menu.description}</p>
         <div className="menu-options">
@@ -86,7 +93,11 @@ function MenuCard({ menu, onAddToCart }) {
             </label>
           ))}
         </div>
-        <button className="add-to-cart-button" onClick={handleAddToCart}>
+        <button 
+          className="add-to-cart-button" 
+          onClick={handleAddToCart}
+          disabled={isOutOfStock}
+        >
           담기
         </button>
       </div>

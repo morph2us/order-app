@@ -45,11 +45,26 @@
   gap: 0.5rem;
 }
 
+.menu-name-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .menu-name {
   margin: 0;
   font-size: 1.2rem;
   font-weight: bold;
   color: #333;
+}
+
+.out-of-stock-badge {
+  padding: 0.25rem 0.5rem;
+  background-color: #ffebee;
+  color: #c62828;
+  font-size: 0.75rem;
+  font-weight: bold;
+  border-radius: 4px;
 }
 
 .menu-price {
@@ -98,7 +113,13 @@
   transition: background-color 0.2s;
 }
 
-.add-to-cart-button:hover {
+.add-to-cart-button:hover:not(:disabled) {
   background-color: #0052a3;
+}
+
+.add-to-cart-button:disabled {
+  background-color: #ccc;
+  color: #999;
+  cursor: not-allowed;
 }
 

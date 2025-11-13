@@ -13,6 +13,12 @@ function ShoppingCart({ cartItems, onOrder, onRemoveFromCart }) {
     return `${item.menuName} (${optionsText})`;
   };
 
+  const getItemKey = (item, index) => {
+    // 고유한 key 생성: menuId + 옵션 ID 조합 + index
+    const optionIds = item.selectedOptions.map(opt => opt.id).sort((a, b) => a - b).join('-');
+    return `${item.menuId}-${optionIds || 'no-options'}-${index}`;
+  };
+
   return (
     <div className="shopping-cart">
       <h2 className="cart-title">장바구니</h2>
@@ -22,7 +28,7 @@ function ShoppingCart({ cartItems, onOrder, onRemoveFromCart }) {
             <p className="empty-cart">장바구니가 비어있습니다.</p>
           ) : (
             cartItems.map((item, index) => (
-              <div key={index} className="cart-item">
+              <div key={getItemKey(item, index)} className="cart-item">
                 <button 
                   className="remove-button"
                   onClick={() => onRemoveFromCart(index)}
